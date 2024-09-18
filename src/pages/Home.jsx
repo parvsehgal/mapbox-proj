@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import Map, { Marker, Popup } from "react-map-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import axios from "axios";
 import { useLocation } from "react-router-dom";
+import { cartContext } from "../context/sidebarContext";
 
-const MAPBOX_TOKEN = "<YOUR MAPBOX TOKEN>";
+const MAPBOX_TOKEN = "<YOUR TOKEN>";
 
 const Home = () => {
   const [viewport, setViewport] = useState(null);
@@ -13,14 +14,32 @@ const Home = () => {
   const [restraunts, setRes] = useState([]);
   const [hoveredIndex, setHoveredIndex] = useState(null);
 
-  const fetchNearbyRestaurants = async (lat, lon) => {
-    const apiKey = "<YOUR API KEY>";
+  const apiKey = "<YOUR API KEY>";
 
+  const { dataForCart, setCartData, isDrawerOpen, setDrawerOpen } =
+    useContext(cartContext);
+
+  const getResInfo = async (placeId) => {
+    //make the api call to get detaild information about a specific place
+    const apiUrl = `https://places.googleapis.com/v1/${placeId}`;
+    const { data } = await axios.get(apiUrl, {
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": "<YOUR KEY>",
+        "X-Goog-FieldMask":
+          "id,displayName,formattedAddress,regularOpeningHours,businessStatus,nationalPhoneNumber,rating,reviews,delivery,dineIn",
+      },
+    });
+    setCartData(data);
+    setDrawerOpen(true);
+  };
+
+  const fetchNearbyRestaurants = async (lat, lon) => {
     const { data } = await axios.post(
       "https://places.googleapis.com/v1/places:searchNearby",
       {
         includedTypes: ["restaurant"],
-        maxResultCount: 10,
+        maxResultCount: 15,
         locationRestriction: {
           circle: {
             center: {
@@ -54,7 +73,7 @@ const Home = () => {
           setViewport({
             latitude: lat,
             longitude: lon,
-            zoom: 15,
+            zoom: 16,
           });
 
           const restaurantsData = await fetchNearbyRestaurants(lat, lon);
@@ -72,7 +91,6 @@ const Home = () => {
 
   return (
     <div style={{ height: "100vh" }}>
-      <div>Above map</div>
       <Map
         initialViewState={viewport}
         mapStyle="mapbox://styles/mapbox/streets-v11"
@@ -104,6 +122,7 @@ const Home = () => {
                   <Marker
                     latitude={restaurant.viewport.high.latitude}
                     longitude={restaurant.viewport.high.longitude}
+                    color={"blue"}
                   >
                     <div
                       style={{
@@ -117,6 +136,7 @@ const Home = () => {
                       }}
                       onMouseEnter={() => setHoveredIndex(index)}
                       onMouseLeave={() => setHoveredIndex(null)}
+                      onClick={() => getResInfo(restaurant.name)}
                     />
                   </Marker>
                   {isHovered && (
@@ -124,7 +144,7 @@ const Home = () => {
                       latitude={restaurant.viewport.high.latitude}
                       longitude={restaurant.viewport.high.longitude}
                       closeButton={false}
-                      anchor="top"
+                      anchor="bottom"
                       onClose={() => setHoveredIndex(null)}
                     >
                       <div>{restaurant.displayName.text}</div>
